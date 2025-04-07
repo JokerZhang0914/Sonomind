@@ -1,1 +1,1 @@
-# Sonomind-Medical-Ultrasound-Technology-Agent
+# Sonomind:Medical Ultrasound Technology Agent
