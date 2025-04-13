@@ -1,9 +1,14 @@
 from typing import *
 import json
+import os
 from openai import OpenAI
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 client = OpenAI(
-    api_key = "sk-t2qDZfR7tnGOJrVMwfiXOwt280seaXTokhR57AFJsyEj9Rh1",
+    api_key = os.getenv("API_KEY"),
     base_url="https://api.moonshot.cn/v1",
 )
 
@@ -40,7 +45,7 @@ def query_ultrasound_impl(question: str) -> Dict[str, Any]:
     # DeepSeek API配置
     api_url = "https://api.deepseek.com/v1/medical/ultrasound"
     headers = {
-        "Authorization": "sk-27a799972c5a4e0e81a9947d2061954c",  # DeepSeek API密钥
+        "Authorization": f"Bearer {os.getenv('DEEPSEEK_API_KEY')}",
         "Content-Type": "application/json"
     }
     
@@ -50,17 +55,25 @@ def query_ultrasound_impl(question: str) -> Dict[str, Any]:
         "language": "zh-CN"
     }
     
-    r = httpx.post(api_url, headers=headers, json=payload)
-    
-    if r.status_code != 200:
-        return {"error": f"API请求失败，状态码: {r.status_code}"}
-    
-    return r.json()
+    try:
+        with httpx.Client(timeout=30) as client:
+            r = client.post(api_url, headers=headers, json=payload)
+            r.raise_for_status()
+            return r.json()
+    except httpx.HTTPStatusError as e:
+        return {"error": f"HTTP错误: {e.response.status_code}"}
+    except Exception as e:
+        return {"error": f"请求失败: {str(e)}"}
 
 def query_ultrasound_knowledge(arguments: Dict[str, Any]) -> Any:
-    question = arguments["question"]
-    result = query_ultrasound_impl(question)
-    return {"answer": result.get("answer", ""), "sources": result.get("sources", [])}
+    try:
+        question = arguments["question"]
+        result = query_ultrasound_impl(question)
+        return {"answer": result.get("answer", ""), "sources": result.get("sources", [])}
+    except KeyError:
+        return {"error": "参数缺少'question'字段"}
+    except Exception as e:
+        return {"error": f"内部错误: {str(e)}"}
 
 # 更新tool_map
 tool_map = {
@@ -74,8 +87,8 @@ messages = [
 
 # 从终端获取用户输入
 while True:
-    user_input = input("\n请输入您的问题(输入'退出'结束): ")
-    if user_input.lower() == '退出':
+    user_input = input("\n请输入您的问题(输入'退出'('q')结束): ")
+    if user_input.lower() in ['退出', 'q', 'Q']:
         break
         
     messages.append({"role": "user", "content": user_input})
@@ -98,6 +111,13 @@ while True:
             for tool_call in choice.message.tool_calls:
                 tool_call_name = tool_call.function.name
                 print(f"正在调用工具: {tool_call_name}")
+                if tool_call_name not in tool_map:
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": "错误：未知工具",
+                    })
+                    continue
                 tool_call_arguments = json.loads(tool_call.function.arguments)
                 tool_function = tool_map[tool_call_name]
                 tool_result = tool_function(tool_call_arguments)
