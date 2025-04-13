@@ -1,6 +1,7 @@
 from typing import *
 import json
 import os
+import asyncio
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -29,6 +30,23 @@ tools = [
                     "question": {
                         "type": "string",
                         "description": "用户提出的关于医学超声的具体问题，需要准确描述问题内容"
+                    }
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "text_to_speech",
+            "description": "将文本转换为语音并播放",
+            "parameters": {
+                "type": "object",
+                "required": ["text"],
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": "需要转换为语音的文本内容"
                     }
                 }
             }
@@ -75,9 +93,34 @@ def query_ultrasound_knowledge(arguments: Dict[str, Any]) -> Any:
     except Exception as e:
         return {"error": f"内部错误: {str(e)}"}
 
+async def text_to_speech(text: str) -> Dict[str, Any]:
+    """使用EdgeTTS将文本转换为语音并播放"""
+    try:
+        import edge_tts
+        import asyncio
+        
+        # 创建临时音频文件
+        output_file = "temp_speech.mp3"
+        
+        # 使用中文女声
+        voice = "zh-CN-XiaoxiaoNeural"
+        communicate = edge_tts.Communicate(text, voice)
+        
+        # 生成语音文件
+        await communicate.save(output_file)
+        
+        # 使用系统默认播放器播放音频
+        import os
+        os.startfile(output_file)
+        
+        return {"status": "success", "message": "语音播放成功"}
+    except Exception as e:
+        return {"error": f"语音合成失败: {str(e)}"}
+
 # 更新tool_map
 tool_map = {
-    "query_ultrasound_knowledge": query_ultrasound_knowledge
+    "query_ultrasound_knowledge": query_ultrasound_knowledge,
+    "text_to_speech": text_to_speech
 }
 
 messages = [
@@ -131,3 +174,6 @@ while True:
 
     print("\nKimi回答:", choice.message.content)
     print("="*50)
+    
+    # 使用EdgeTTS朗读回答
+    asyncio.run(text_to_speech(choice.message.content))
