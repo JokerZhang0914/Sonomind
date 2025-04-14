@@ -138,6 +138,8 @@ tool_map = {
 
 def encode_image_to_base64(image_path: str) -> str:
     """将图像文件编码为base64格式"""
+    image_path = image_path.replace('"', '')  
+    image_path = image_path.replace('\\', '/') # 将所有的 / 替换为 \
     with open(image_path, "rb") as f:
         image_data = f.read()
     
