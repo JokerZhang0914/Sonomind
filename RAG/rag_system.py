@@ -240,6 +240,7 @@ class RAGSystem:
 
         docs = self.vector_store.similarity_search(question, k=k)
         context = []
+        seen_images = set()
         image_folder = "Pictures"  # 假设所有图片保存在 pictures 文件夹中
 
         for doc in docs:
@@ -256,8 +257,9 @@ class RAGSystem:
                     for fname in os.listdir(image_folder):
                         for pos in target_positions:
                             pattern = f"^paragraph_{pos}_image_\\d+\\.png$"
-                            if re.match(pattern, fname):
+                            if re.match(pattern, fname) and fname not in seen_images:
                                 related_images.append(os.path.join(image_folder, fname))
+                                seen_images.add(fname)
 
                 if related_images:
                     picture_path.append(f"段落 {paragraph_number}: {', '.join(related_images)}")
