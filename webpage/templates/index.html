@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">  <!-- 语言设置为中文 -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SonoMind ——医学超声技术智能体</title>  <!-- 网站标题 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">  <!-- 链接 CSS 文件 -->
+</head>
+<body>
+    <header>
+        <!-- 头部logo，点击返回主页面 -->
+        <a href="/"><img src="{{ url_for('static', filename='images/logo.png') }}" alt="" ></a>
+    </header>
+    <div class="intro-text">
+		<!-- 居中文本区域 -->
+        <p class="intro-title">欢迎体验医学超声技术智能体</p>
+        <p class="intro-subtitle">探索先进的超声技术与智能交互</p>
+    </div>
+    <main>
+        <!-- 主内容区域，包含两个可点击的方形卡片 -->
+        <ul class="content">
+            <li class="box">
+                <a href="/learning">  <!-- 链接到子页面1 -->
+                    <h2>超声知识探索</h2>
+                    <p>我可以帮你解答医学超声领域的问题</p>
+                </a>
+            </li>
+            <li class="box">
+                <a href="/usimage">  <!-- 链接到子页面2 -->
+                    <h2>影像智能解读</h2>
+                    <p>上传你的超声影像，为你分析检查结果</p>
+                </a>
+            </li>
+        </ul>
+    </main>
+</body>
+</html>
