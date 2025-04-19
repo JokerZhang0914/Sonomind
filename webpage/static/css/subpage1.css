@@ -1,0 +1,216 @@
+/* 子页面内容区域 */
+body {
+    font-family: Arial, sans-serif;  /* 设置字体 */
+    margin: 0;  /* 移除默认外边距 */
+    padding: 0;  /* 移除默认内边距 */
+    box-sizing: border-box; /* 确保边框和内边距不影响宽度 */
+}
+
+header {
+    background-color: white;  /* 保持顶部背景颜色不变 */
+    padding: 20px;  /* 头部内边距 */
+    text-align: left;  /* logo 和主题左对齐 */
+    position: fixed;  /* 固定定位，保持在页面顶部 */
+    top: 0;  /* 顶部对齐 */
+    width: 100%;  /* 占满页面宽度 */
+    z-index: 1000;  /* 确保在其他元素之上 */
+}
+
+header img {
+    width: 20%; /* 占满框宽度 */
+    height: 20%; /* 图片高度 */
+    object-fit: cover; /* 填满空间，保持比例 */
+}
+
+.content {
+    flex: 1; /* 占用剩余空间 */
+    display: flex; /* 垂直排列聊天内容 */
+    flex-direction: column; /* 消息和输入框垂直排列 */
+    padding: 20px; /* 四周填充 */
+    min-height: calc(100vh - 120px); /* 确保内容区域占满高度 */
+    max-width: 60%; /* 主体部分占页面宽度的60% */
+    margin: 0 auto; /* 水平居中，两侧留空隙 */
+    margin-top: 100px; /* 增加顶部间距，避免被固定header遮挡 */
+    box-sizing: border-box; /* 确保padding不影响宽度 */
+}
+
+/* 聊天容器样式 */
+.chat-container {
+    flex: 1; /* 占用大部分空间 */
+    overflow-y: auto; /* 启用垂直滚动 */
+    padding: 10px; /* 内部填充 */
+    display: flex; /* 垂直排列消息 */
+    flex-direction: column; /* 消息从上到下 */
+    width: 100%; /* 占满父容器宽度 */
+    box-sizing: border-box; /* 确保padding不影响宽度 */
+}
+
+/* 消息样式 */
+.message {
+    margin: 10px 0; /* 上下间距 */
+    padding: 10px; /* 内部填充 */
+    border-radius: 8px; /* 圆角 */
+    max-width: 90%; /* 消息宽度略小于容器，留出边距 */
+    width: fit-content; /* 消息宽度自适应内容 */
+    font-family: Arial, sans-serif; /* 显式设置字体 */
+    font-size: 16px; /* 统一字体大小 */
+    line-height: 1.5; /* 统一行高 */
+}
+
+/* 用户消息样式 */
+.message.user {
+    background-color: #f5f5f5; /* 浅灰色背景 */
+    align-self: flex-end; /* 靠右 */
+    text-align: justify; /* 文字两端对齐 */
+}
+
+/* 回答消息样式 */
+.message.response {
+    align-self: flex-start; /* 靠左 */
+    text-align: left; /* 文字左对齐 */
+}
+
+/* 输入框容器样式 */
+.input-container {
+    background-color: #f5f5f5; /* 白色背景 */
+    padding: 10px; /* 内部填充 */
+    border: 1px solid #ddd; /* 外部圆角框 */
+    border-radius: 20px; /* 圆角 */
+    width: 100%; /* 占满父容器宽度 */
+    display: flex; /* 垂直排列文件预览、输入框和图标 */
+    flex-direction: column; /* 文件预览在上，输入框和图标在下 */
+    gap: 8px; /* 各元素间距 */
+    box-sizing: border-box; /* 确保padding和border不影响宽度 */
+}
+
+/* 输入框容器居中样式 */
+.input-container.centered {
+    position: absolute; /* 脱离文档流 */
+    top: 50%; /* 垂直居中 */
+    left: 50%; /* 水平居中 */
+    transform: translate(-50%, -50%); /* 偏移修正 */
+    width: 80%; /* 确保居中时也遵循80%宽度 */
+    max-width: 600px; /* 限制居中时的最大宽度 */
+}
+
+/* 输入框固定在底部时的样式 */
+.input-container:not(.centered) {
+    position: sticky; /* 固定在底部 */
+    bottom: 20px; /* 紧贴底部 */
+}
+
+/* 文件预览容器样式 */
+.file-preview-container {
+    display: flex;
+    flex-direction: row; /* 水平排列 */
+    flex-wrap: wrap; /* 支持换行 */
+    gap: 8px; /* 标签之间的间距 */
+}
+
+/* 文件预览样式 */
+.file-preview {
+    display: flex; /* 水平排列文件名和删除按钮 */
+    align-items: center; /* 垂直居中 */
+    background-color: #e5e7eb; /* 浅灰色背景 */
+    border: 1px solid #d1d5db; /* 灰色边框 */
+    border-radius: 16px; /* 圆角 */
+    padding: 4px 8px; /* 内部填充 */
+    font-family: Arial, sans-serif;
+    font-size: 14px; /* 字体稍小 */
+    line-height: 1; /* 行高调整 */
+    color: #374151; /* 深灰色文字 */
+}
+
+/* 文件预览中的文件名 */
+.file-preview span {
+    margin-right: 4px; /* 与删除按钮的间距 */
+}
+
+/* 删除按钮样式 */
+.file-preview .delete-btn {
+    width: 16px; /* 更小的按钮 */
+    height: 16px;
+    background-color: transparent; /* 无背景 */
+    color: #6b7280; /* 灰色“×” */
+    border: none;
+    border-radius: 50%; /* 圆形 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px; /* 小字体 */
+    cursor: pointer;
+    padding: 0;
+}
+
+.file-preview .delete-btn:hover {
+    color: #374151; /* 悬停时变深 */
+}
+
+/* 输入框样式 */
+.chat-input {
+    flex: 1; /* 占用剩余空间 */
+    padding: 10px; /* 内部填充 */
+    border: none; /* 移除边框 */
+    border-radius: 4px; /* 保留轻微圆角 */
+    font-family: Arial, sans-serif; /* 设置字体 */
+    font-size: 16px; /* 字体大小 */
+    line-height: 1.5; /* 行高，影响每行高度 */
+    outline: none; /* 移除焦点边框 */
+    width: 100%; /* 占满父容器宽度 */
+    box-sizing: border-box; /* 确保padding不影响宽度 */
+    background-color: #f5f5f5; /* 白色背景 */
+    resize: none; /* 禁用手动调整大小 */
+    overflow-y: auto; /* 超过最大高度时显示滚动条 */
+}
+
+/* 自定义滚动条样式 */
+.chat-input::-webkit-scrollbar {
+    width: 8px; /* 滚动条宽度 */
+}
+
+/* 滚动条轨道 */
+.chat-input::-webkit-scrollbar-track {
+    background: #f5f5f5; /* 浅灰色轨道 */
+    border-radius: 4px; /* 圆角 */
+}
+
+/* 滚动条滑块 */
+.chat-input::-webkit-scrollbar-thumb {
+    background: #888; /* 深灰色滑块 */
+    border-radius: 4px; /* 圆角 */
+}
+
+/* 滑块悬停效果 */
+.chat-input::-webkit-scrollbar-thumb:hover {
+    background: #666; /* 悬停时变亮 */
+}
+
+/* 自定义滚动条样式 */
+.chat-input {
+    scrollbar-width: thin; /* 细滚动条 */
+    scrollbar-color: #888 #f5f5f5; /* 滑块和轨道颜色 */
+}
+
+/* 图标容器样式 */
+.icon-container {
+    display: flex; /* 水平排列图标 */
+    justify-content: flex-end; /* 靠右对齐 */
+    gap: 10px; /* 图标间距 */
+}
+
+/* 图标样式 */
+.icon {
+    width: 24px; /* 图标大小 */
+    height: 24px;
+    cursor: pointer; /* 鼠标悬停时显示手型 */
+}
+
+/* 回形针图标 */
+.clip-icon {
+    order: -1; /* 靠左（在发送图标之前） */
+}
+
+/* 发送图标 */
+.send-icon {
+    order: 1; /* 靠右 */
+}

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<!-- 声明文档类型为 HTML5 -->
+<html lang="zh-CN">
+<!-- 设置页面语言为简体中文 -->
+<head>
+    <!-- 定义页面元数据 -->
+    <meta charset="UTF-8">
+    <!-- 设置字符编码为 UTF-8，支持中文显示 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 适配移动设备，确保页面宽度与设备宽度一致，初始缩放为1 -->
+    <title>SonoMind | 医学超声技术知识科普</title>
+    <!-- 设置页面标题，显示在浏览器标签页 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/subpage1.css') }}">
+    <!-- 引入外部 CSS 样式文件，用于页面样式控制 -->
+</head>
+<body>
+    <!-- 页面主体内容 -->
+    <header>
+        <!-- 页面头部，包含网站 logo -->
+        <a href="/">
+            <!-- 链接到首页 -->
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="">
+            <!-- 显示 logo 图片，alt 为空表示装饰性图片 -->
+        </a>
+    </header>
+    <div class="content">
+        <!-- 主内容区域 -->
+        <div class="chat-container" id="chatContainer"></div>
+        <!-- 聊天消息容器，用于动态显示用户和响应消息 -->
+        <div class="input-container centered" id="inputContainer">
+            <!-- 输入区域容器，初始居中显示 -->
+            <div class="file-preview-container" id="filePreviewContainer"></div>
+            <!-- 文件预览区域，用于显示用户选择的文件 -->
+            <textarea class="chat-input" id="chatInput" placeholder="请输入内容..."></textarea>
+            <!-- 文本输入框，允许用户输入消息，带有占位文本 -->
+            <div class="icon-container">
+                <!-- 图标容器，包含附件和发送图标 -->
+                <img src="{{ url_for('static', filename='images/clip.png') }}" alt="" class="icon clip-icon" id="clipIcon">
+                <!-- 附件图标，点击触发文件选择，alt 为空表示装饰性图片 -->
+                <img src="{{ url_for('static', filename='images/send.png') }}" alt="" class="icon send-icon" id="sendIcon">
+                <!-- 发送图标，点击发送消息，alt 为空表示装饰性图片 -->
+            </div>
+            <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg" multiple style="display: none;">
+            <!-- 文件输入框，隐藏样式，仅支持 PNG/JPEG/JPG 格式，支持多选 -->
+        </div>
+    </div>
+    <!-- 引入JavaScript文件 -->
+    <script src="{{ url_for('static', filename='js/learning.js') }}"></script>
+    <!-- 聊天页面交互逻辑 -->
+    <script src="{{ url_for('static', filename='js/marked.js') }}"></script>
+    <!-- 引入marked.js以支持Markdown渲染 -->
+</body>
+</html>
