@@ -1,0 +1,90 @@
+/* CSS 文件 */
+body {
+    font-family: Arial, sans-serif;  /* 设置字体 */
+    margin: 0;  /* 移除默认外边距 */
+    padding: 0;  /* 移除默认内边距 */
+}
+
+header {
+    background-color: white;  /* 保持顶部背景颜色不变 */
+    padding: 20px;  /* 头部内边距 */
+    text-align: left;  /* logo 和主题左对齐 */
+}
+
+header img {
+    width: 20%; /* 占满框宽度 */
+    height: 20%; /* 图片高度*/
+    object-fit: cover; /* 填满空间，保持比例 */
+}
+
+/* 新增的居中文本区域样式 */
+.intro-text {
+    text-align: center; /* 居中对齐 */
+    padding: 20px 0; /* 上下填充 */
+    color: #333; /* 文字颜色 */
+}
+
+.intro-title {
+    font-size: 28px; /* 字体稍大 */
+    font-weight: bold; /* 加粗 */
+    margin: 10px 0; /* 上下间距 */
+    margin-top: 80px; /* 向下偏移 */
+}
+
+.intro-subtitle {
+    font-size: 18px; /* 稍小字体 */
+    margin: 5px 0; /* 上下间距 */
+}
+
+/* 主页面内容区域 */
+.content {
+    flex: 1; /* 占用剩余空间 */
+    display: flex; /* 水平排列方形框 */
+    justify-content: center; /* 水平居中 */
+    align-items: center; /* 垂直居中 */
+    gap: 100px; /* 框间距 */
+    padding: 40px; /* 四周填充 */
+	/*min-height: calc(100vh - 50px); /* 可选：动态计算高度 */
+}
+
+/* 方形框样式 */
+.box {
+    width: 500px; /* 框宽度，可调整 */
+    text-align: center; /* 内容居中 */
+    border: 1px solid #ddd; /* 浅灰色边框 */
+    border-radius: 8px; /* 圆角 */
+    overflow: hidden; /* 防止内容溢出 */
+    transition: transform 0.2s; /* 悬停缩放效果 */
+}
+
+/* 方形框悬停效果 */
+.box:hover {
+    transform: scale(1.05); /* 放大 5% */
+}
+
+/* 框内文字链接样式 */
+.box a {
+    display: block; /* 占满文字区域 */
+    padding: 15px; /* 内部填充 */
+    text-decoration: none; /* 移除下划线 */
+    color: #333; /* 文字颜色 */
+}
+
+/* 框内第一行文字（h2）样式 */
+.box h2 {
+    font-size: 22px; /* 比第二行略大 */
+    font-weight: bold; /* 加粗 */
+    margin: 10px 0; /* 上下间距 */
+}
+
+/* 框内第二行文字（p）样式 */
+.box p {
+    font-size: 16px; /* 稍小字体 */
+    font-weight: normal; /* 正常字体 */
+    margin: 5px 0; /* 上下间距 */
+}
+
+/* 文字链接悬停效果 */
+.box a:hover {
+    background-color: #f0f0f0; /* 悬停背景变浅灰 */
+}
