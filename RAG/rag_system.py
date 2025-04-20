@@ -150,8 +150,11 @@ class RAGSystem:
                 if images:
                     image_filenames = [img["filename"] for img in images]
                     print(f"从 {file_path} 提取到 {len(images)} 张图片")
-                    print(f"相关图像：{ '、'.join(image_filenames) }")
-                    print(f"图片段落分配：{[f'{img['filename']} -> 段落 {img['position']}' for img in images]}")
+                    print(f"相关图像：{'、'.join(image_filenames)}")
+                    
+                    image_mapping = [f"{img['filename']} -> 段落 {img['position']}" for img in images]
+                    print(f"图片段落分配：{image_mapping}")
+
             else:
                 print(f"文件 {file_path} 提取的文本为空，跳过")
 
