@@ -1,9 +1,9 @@
 from typing import *
 import json
 import asyncio
-from src.chat.chat_service import client, tools, tool_map
-from src.speech.speech_service import text_to_speech
-from src.image import encode_image_to_base64, has_image_content
+from chat.chat_service import client, tools, tool_map
+from speech.speech_service import text_to_speech
+from image import encode_image_to_base64, has_image_content
 
 # 系统提示信息
 system_message = {
