@@ -244,7 +244,10 @@ class RAGSystem:
         docs = self.vector_store.similarity_search(question, k=k)
         context = []
         seen_images = set()
-        image_folder = "Pictures"  # 假设所有图片保存在 pictures 文件夹中
+        # 获取当前 Python 文件所在目录，并拼接 Pictures 路径
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # 去掉多余的 "RAG" 层，直接拼接 Pictures
+        image_folder = os.path.join(current_dir, "Pictures")
 
         for doc in docs:
             paragraph_number = doc.metadata.get('paragraph_number', '未知')
@@ -264,8 +267,8 @@ class RAGSystem:
                                 related_images.append(os.path.join(image_folder, fname))
                                 seen_images.add(fname)
 
-                if related_images:
-                    picture_path.append(f"段落 {paragraph_number}: {', '.join(related_images)}")
+                    if related_images:
+                        picture_path.append(f"段落 {paragraph_number}: {', '.join(related_images)}")
 
         prompt = f"""参考以下内容以及你的已有知识回答问题：\n{'\n'.join(context)} \n问题为: {question}"""       
         return prompt, picture_path

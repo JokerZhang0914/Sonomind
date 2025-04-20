@@ -1,4 +1,4 @@
-from rag_system import RAGSystem
+from RAG.rag_system import RAGSystem
 
 def call_rag_query(question, model_name="BAAI/bge-large-zh-v1.5"):
     rag = RAGSystem(model_name=model_name)  # 初始化 RAGSystem
