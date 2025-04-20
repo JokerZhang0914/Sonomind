@@ -3,7 +3,7 @@ import asyncio
 import edge_tts
 import pygame
 import io
-from ..config import VOICE_NAME
+from config import VOICE_NAME
 
 async def text_to_speech(text: str) -> Dict[str, Any]:
     """使用EdgeTTS将文本转换为语音并直接播放"""

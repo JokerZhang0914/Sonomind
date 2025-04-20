@@ -2,7 +2,7 @@ from typing import *
 from openai import OpenAI
 import json
 import httpx
-from ..config import API_KEY, DEEPSEEK_API_KEY, MOONSHOT_BASE_URL, DEEPSEEK_API_URL
+from config import API_KEY, DEEPSEEK_API_KEY, MOONSHOT_BASE_URL, DEEPSEEK_API_URL
 
 # 初始化OpenAI客户端
 client = OpenAI(
