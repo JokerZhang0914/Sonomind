@@ -267,7 +267,7 @@ class RAGSystem:
                 if related_images:
                     picture_path.append(f"段落 {paragraph_number}: {', '.join(related_images)}")
 
-        prompt = f"""参考以下内容以及你的已有知识回答问题：\n{'\n'.join(context)} \n问题为: {question}"""       
+        prompt = f"""参考以下内容以及你的已有知识回答问题：\n{' '.join(context)} \n问题为: {question}"""       
         return prompt, picture_path
 
 
