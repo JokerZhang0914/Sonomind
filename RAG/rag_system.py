@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import re
 import unicodedata
@@ -12,11 +13,13 @@ from sentence_transformers import SentenceTransformer
 from langchain_community.vectorstores import FAISS
 from langchain.embeddings.base import Embeddings
 
-# -------- 文本处理工具 --------
+# -------- 段落处理工具 --------
 def merge_segments(text, min_length=75):
     segments = [seg.strip() for seg in text.split('\n') if seg.strip()]
     merged_segments = []
     buffer = ""
+
+    # 合并段落, 以确保每段至少有 min_length 个字符
     for seg in segments:
         buffer += seg
         if len(buffer) >= min_length:
@@ -24,6 +27,8 @@ def merge_segments(text, min_length=75):
             buffer = ""
         else:
             buffer += "\n"
+
+    # 处理剩余的缓冲区, 如果缓冲区不为空且长度小于 min_length, 则将其附加到最后一个段落
     if buffer.strip():
         if len(buffer) >= min_length:
             merged_segments.append(buffer.strip())
@@ -33,6 +38,7 @@ def merge_segments(text, min_length=75):
             merged_segments.append(buffer.strip())
     return merged_segments or [text]
 
+# -------- 文本清理 --------
 def clean_text(text):
     text = unicodedata.normalize('NFKC', text)
     text = text.replace(',', '，')
@@ -65,18 +71,23 @@ class RAGSystem:
         self.images = []
         self.load_vector_store()
 
+    # 提取 DOCX 文档中的文本和图片
     def extract_text_from_docx(self, docx_path):
         doc = Document(docx_path)
         full_text, images = [], []
         rels = doc.part.rels
         for para_idx, para in enumerate(doc.paragraphs):
             paragraph_text, para_images, image_counter = [], [], 0
+            
+            # 提取段落文本
             for run in para.runs:
                 run_text = run.text
                 if run._element.findall(qn('w:br')):
                     run_text = run_text.replace('\r', '\n')
                 if run_text:
                     paragraph_text.append(run_text)
+
+                # 提取图片
                 for blip in run._element.findall('.//a:blip', namespaces={'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'}):
                     embed_id = blip.get(qn('r:embed'))
                     if embed_id and embed_id in rels:
@@ -90,6 +101,7 @@ class RAGSystem:
                             para_images.append({"filename": filename, "position": position, "rel_id": embed_id})
                         except Exception as e:
                             print(f"保存图片失败: {e}")
+            # 合并段落文本
             if paragraph_text:
                 combined = ''.join(paragraph_text).strip()
                 if combined:
@@ -109,6 +121,7 @@ class RAGSystem:
                     print(f"保存图片失败: {e}")
         return full_text, images
 
+    # 处理文件，调用提取文本和图片的方法
     def process_file(self, file_paths):
         all_text, all_images = [], []
         for file_path in file_paths:
@@ -124,6 +137,7 @@ class RAGSystem:
         self.images = all_images
         return all_images
 
+    # 加载向量存储
     def load_vector_store(self):
         if os.path.exists(self.vector_store_path):
             try:
@@ -139,6 +153,7 @@ class RAGSystem:
                 print(f"加载失败: {e}")
         return False
 
+    # 保存向量存储
     def save_vector_store(self):
         if self.vector_store:
             self.vector_store.save_local(self.vector_store_path)
@@ -146,6 +161,7 @@ class RAGSystem:
                 pickle.dump(self.documents, f)
             print("向量存储和文档已保存")
 
+    # 创建向量存储
     def create_vector_store(self):
         if not self.documents:
             raise ValueError("没有文档可用于嵌入")
@@ -160,6 +176,7 @@ class RAGSystem:
         print(f"创建向量存储，共 {len(cleaned_segments)} 段")
         self.save_vector_store()
 
+    # 用户查询接口, 通过向量存储查询相关段落
     def query(self, question, k = 1):
         if not self.vector_store:
             raise ValueError("向量存储未初始化")
