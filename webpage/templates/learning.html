@@ -34,7 +34,9 @@
             <textarea class="chat-input" id="chatInput" placeholder="请输入内容..."></textarea>
             <!-- 文本输入框，允许用户输入消息，带有占位文本 -->
             <div class="icon-container">
-                <!-- 图标容器，包含附件和发送图标 -->
+                <!-- 图标容器，包含深度搜索、附件和发送图标 -->
+                <button class="deep-search-btn" id="deepSearchBtn">认知增强</button>
+                <!-- 深度搜索按钮 -->
                 <img src="{{ url_for('static', filename='images/clip.png') }}" alt="" class="icon clip-icon" id="clipIcon">
                 <!-- 附件图标，点击触发文件选择，alt 为空表示装饰性图片 -->
                 <img src="{{ url_for('static', filename='images/send.png') }}" alt="" class="icon send-icon" id="sendIcon">
@@ -49,5 +51,6 @@
     <!-- 聊天页面交互逻辑 -->
     <script src="{{ url_for('static', filename='js/marked.js') }}"></script>
     <!-- 引入marked.js以支持Markdown渲染 -->
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'933959439cb3dd1d',t:'MTc0NTIwMTQ2NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>

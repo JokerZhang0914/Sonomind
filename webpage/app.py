@@ -49,12 +49,24 @@ def ask():
     text = data.get('text', '')  # 获取文本内容
     files = data.get('files', [])  # 获取文件元数据列表
     page_type = data.get('page_type', 'learning')  # 获取页面类型，默认为learning
-    # 根据页面类型执行不同处理逻辑
+    deep_search = data.get('deep_search', False)  # 获取深度搜索标志，默认为False
+
+    # 响应文本
+    response_text = ""
+
+    # 先判断页面类型
     if page_type == 'learning':
-        # learning页面逻辑：后续替换为实际的处理逻辑
-        response_text = f"学习页面收到消息：{text}"
-        if files:
-            response_text += "\n文件:\n" + "\n".join([f"- {file['original_name']}" for file in files])
+        # 如果是learning页面，再判断是否需要深度搜索
+        if deep_search:
+            # 深度搜索逻辑：后续替换为实际的处理逻辑
+            response_text = f"学习页面深度搜索收到消息：{text}"
+            if files:
+                response_text += "\n文件:\n" + "\n".join([f"- {file['original_name']}" for file in files])
+        else:
+            # 普通逻辑：后续替换为实际的处理逻辑
+            response_text = f"学习页面收到消息：{text}"
+            if files:
+                response_text += "\n文件:\n" + "\n".join([f"- {file['original_name']}" for file in files])
     elif page_type == 'usimage':
         # usimage页面逻辑：后续替换为实际的处理逻辑
         response_text = "影像分析页面收到图片："
@@ -63,8 +75,20 @@ def ask():
     else:
         # 无效页面类型
         response_text = "无效的页面类型"
+
     # 返回Markdown格式的文本和文件元数据
     return jsonify({'text': response_text, 'files': files})
+
+# 深度搜索端点（兼容旧代码，重定向到/ask）
+@app.route('/deepsearch', methods=['POST'])
+def deepsearch():
+    # 获取JSON请求数据
+    data = request.get_json()
+    # 添加deep_search标志
+    data['deep_search'] = True
+    # 调用/ask端点的逻辑
+    request.json = data  # 模拟请求数据
+    return ask()
 
 # 主页路由
 @app.route('/')
