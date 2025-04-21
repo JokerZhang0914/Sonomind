@@ -6,10 +6,12 @@ const clipIcon = document.getElementById('clipIcon'); // 附件图标
 const sendIcon = document.getElementById('sendIcon'); // 发送图标
 const fileInput = document.getElementById('fileInput'); // 文件输入框
 const filePreviewContainer = document.getElementById('filePreviewContainer'); // 文件预览容器
+const deepSearchBtn = document.getElementById('deepSearchBtn'); // 深度搜索按钮
 
 // 定义变量
 let selectedFiles = []; // 存储用户选择的文件对象数组
 let nextId = 0; // 为每个文件分配唯一ID
+let isDeepSearch = false; // 是否启用深度搜索，初始为 false
 
 // 创建文件预览的DOM元素（输入框上方的预览）
 function createFilePreview(item) {
@@ -114,7 +116,7 @@ async function sendMessage() {
             chatContainer.appendChild(fileDisplayContainer);
         }
 
-        // 发送文本和文件元数据到/ask
+        // 发送文本和文件元数据到/ask，包含deep_search标志
         const response = await fetch('/ask', {
             method: 'POST',
             headers: {
@@ -123,7 +125,8 @@ async function sendMessage() {
             body: JSON.stringify({
                 text: userMessage,
                 files: uploadedFiles,
-                page_type: 'learning' // 指定页面类型为learning
+                page_type: 'learning', // 指定页面类型为learning
+                deep_search: isDeepSearch // 传递深度搜索标志
             })
         });
         const result = await response.json();
@@ -165,13 +168,20 @@ async function sendMessage() {
     }
 }
 
-// 监听输入框变化，动态调整高度
-chatInput.addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = `${this.scrollHeight}px`;
+// 为深度搜索按钮添加点击事件，切换 isDeepSearch 状态并更新按钮样式
+deepSearchBtn.addEventListener('click', () => {
+    isDeepSearch = !isDeepSearch; // 切换深度搜索状态
+    if (isDeepSearch) {
+        deepSearchBtn.classList.add('selected'); // 选中时添加 selected 类
+    } else {
+        deepSearchBtn.classList.remove('selected'); // 未选中时移除 selected 类
+    }
 });
 
-// 监听Enter键发送消息
+// 为发送图标添加点击事件，触发消息发送
+sendIcon.addEventListener('click', sendMessage);
+
+// 为输入框添加键盘事件监听，当按下 Enter 键时触发消息发送
 chatInput.addEventListener('keydown', async function(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
@@ -179,15 +189,12 @@ chatInput.addEventListener('keydown', async function(event) {
     }
 });
 
-// 监听发送图标点击
-sendIcon.addEventListener('click', sendMessage);
-
-// 监听附件图标点击
+// 为附件图标添加点击事件，触发文件选择
 clipIcon.addEventListener('click', function() {
     fileInput.click();
 });
 
-// 监听文件选择变化
+// 为文件输入框添加变化事件监听，当选择文件时更新预览
 fileInput.addEventListener('change', function() {
     const newFiles = Array.from(fileInput.files);
     newFiles.forEach(file => {
@@ -195,4 +202,10 @@ fileInput.addEventListener('change', function() {
     });
     fileInput.value = '';
     updatePreviews();
+});
+
+// 为输入框添加输入事件监听，动态调整高度
+chatInput.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = `${this.scrollHeight}px`;
 });
