@@ -3,135 +3,30 @@ from werkzeug.utils import secure_filename
 import os
 import json
 import asyncio
-import httpx
 import base64
 from uuid import uuid4
 from dotenv import load_dotenv
 import sys
 from pathlib import Path
+from typing import Optional, Tuple
+
+# 添加项目根目录到Python路径
 sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+# 导入自定义服务模块
+from src.chat.chat_service import client, tools, tool_map as chat_tool_map
+from src.image.image_service import encode_image_to_base64, has_image_content
+from src.speech.speech_service import text_to_speech
 from RAG.rag_system import RAGSystem
-from openai import OpenAI
 
 # 加载环境变量
 load_dotenv()
 
-# 初始化OpenAI客户端
-client = OpenAI(
-    api_key=os.getenv("API_KEY"),
-    base_url="https://api.moonshot.cn/v1",
-)
-
-# 定义工具列表
-tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "query_ultrasound_knowledge",
-            "description": """
-                查询医学超声相关专业知识。
-                当用户询问关于医学超声、超声检查、超声诊断等技术问题时，调用此工具。
-                工具会连接DeepSeek医学知识库，获取权威、准确的医学超声知识回答。
-            """,
-            "parameters": {
-                "type": "object",
-                "required": ["question"],
-                "properties": {
-                    "question": {
-                        "type": "string",
-                        "description": "用户提出的关于医学超声的具体问题，需要准确描述问题内容"
-                    }
-                }
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "text_to_speech",
-            "description": "将文本转换为语音并播放",
-            "parameters": {
-                "type": "object",
-                "required": ["text"],
-                "properties": {
-                    "text": {
-                        "type": "string",
-                        "description": "需要转换为语音的文本内容"
-                    }
-                }
-            }
-        }
-    }
-]
-
 # 初始化Flask应用
 app = Flask(__name__)
 
-# 超声知识查询函数
-def query_ultrasound_impl(question: str):
-    """
-    调用DeepSeek医学超声知识API查询专业问题
-    """
-    # DeepSeek API配置
-    api_url = "https://api.deepseek.com/v1/medical/ultrasound"
-    headers = {
-        "Authorization": f"Bearer {os.getenv('DEEPSEEK_API_KEY')}",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "question": question,
-        "domain": "ultrasound",
-        "language": "zh-CN"
-    }
-
-    try:
-        with httpx.Client(timeout=30) as client:
-            r = client.post(api_url, headers=headers, json=payload)
-            r.raise_for_status()
-            return r.json()
-    except httpx.HTTPStatusError as e:
-        return {"error": f"HTTP错误: {e.response.status_code}"}
-    except Exception as e:
-        return {"error": f"请求失败: {str(e)}"}
-
-def query_ultrasound_knowledge(arguments: dict[str, any]) -> any:
-    try:
-        question = arguments["question"]
-        result = query_ultrasound_impl(question)
-        return {"answer": result.get("answer", ""), "sources": result.get("sources", [])}
-    except KeyError:
-        return {"error": "参数缺少'question'字段"}
-    except Exception as e:
-        return {"error": f"内部错误: {str(e)}"}
-
-async def text_to_speech(text):
-    """
-    使用EdgeTTS将文本转换为语音并返回音频数据
-    """
-    try:
-        import edge_tts
-        import io
-
-        # 使用中文女声
-        voice = "zh-CN-XiaoxiaoNeural"
-        communicate = edge_tts.Communicate(text, voice)
-
-        # 创建内存缓冲区存储音频数据
-        audio_buffer = io.BytesIO()
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                audio_buffer.write(chunk["data"])
-
-        # 将缓冲区指针移到开始位置
-        audio_buffer.seek(0)
-        audio_data = audio_buffer.read()
-        
-        return {"status": "success", "audio_data": audio_data}
-    except Exception as e:
-        return {"error": f"语音合成失败: {str(e)}"}
-
-def call_rag_query(question, model_name="BAAI/bge-large-zh-v1.5"):
+def call_rag_query(question: str, model_name: str = "BAAI/bge-large-zh-v1.5") -> Tuple[Optional[str], list[str]]:
+    """调用RAG系统进行知识查询"""
     try:
         rag = RAGSystem(model_name=model_name)  # 初始化 RAGSystem
         result, picture_path = rag.query(question, k=4)  # k 是返回的相似文本块数量
@@ -140,11 +35,9 @@ def call_rag_query(question, model_name="BAAI/bge-large-zh-v1.5"):
         print(f"查询失败: {e}")
         return None, []
 
-# 工具映射表
-tool_map = {
-    "query_ultrasound_knowledge": query_ultrasound_knowledge,
-    "text_to_speech": text_to_speech
-}
+# 更新工具映射表，使用从chat_service导入的映射
+tool_map = chat_tool_map.copy()
+tool_map["text_to_speech"] = text_to_speech  # 添加语音合成工具
 
 # 配置上传文件夹和文件限制
 app.config['UPLOAD_FOLDER'] = 'static/uploads'  # 上传文件保存路径
@@ -289,15 +182,8 @@ def ask():
                 image_url = files[0]['url']
                 image_path = os.path.join(os.getcwd(), image_url.lstrip('/'))
                 
-                # 将图像编码为base64
-                with open(image_path, "rb") as f:
-                    image_data = f.read()
-                
-                file_ext = os.path.splitext(image_path)[1][1:]  # 获取扩展名（去掉点）
-                if not file_ext:
-                    file_ext = "png"  # 默认扩展名
-                
-                image_base64 = f"data:image/{file_ext};base64,{base64.b64encode(image_data).decode('utf-8')}"
+                # 使用image_service将图像编码为base64
+                image_base64 = encode_image_to_base64(image_path)
                 
                 # 创建包含图像的消息
                 prompt = text if text else "请分析这张超声图像，识别病灶区域和正常区域的特征。"

@@ -10,7 +10,7 @@ def call_rag_query(question, model_name="BAAI/bge-large-zh-v1.5"):
         print(f"查询失败: {e}")
         return None, []
 
-question = "连续波多普勒超声换能器有哪几种形式？"  # 可连接到用户接口
+question = "超声换能器有哪些"  # 可连接到用户接口
 result, picture_path = call_rag_query(question) # 调用RAG系统进行查询，生成prompt
 
 print(result)
