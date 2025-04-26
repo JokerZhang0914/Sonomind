@@ -14,7 +14,7 @@ from langchain_community.vectorstores import FAISS
 from langchain.embeddings.base import Embeddings
 
 # -------- 段落处理工具 --------
-def merge_segments(text, min_length=75):
+def merge_segments(text, min_length=80):
     segments = [seg.strip() for seg in text.split('\n') if seg.strip()]
     merged_segments = []
     buffer = ""
@@ -72,11 +72,15 @@ class RAGSystem:
         self.load_vector_store()
 
     # 提取 DOCX 文档中的文本和图片
-    def extract_text_from_docx(self, docx_path):
+    def extract_text_from_docx(self, docx_path, min_paragraph_length=30):
         doc = Document(docx_path)
         full_text, images = [], []
         rels = doc.part.rels
         for para_idx, para in enumerate(doc.paragraphs):
+            # 跳过标题样式的段落
+            if para.style.name.startswith('Heading'):
+                continue
+            
             paragraph_text, para_images, image_counter = [], [], 0
             
             # 提取段落文本
@@ -104,7 +108,8 @@ class RAGSystem:
             # 合并段落文本
             if paragraph_text:
                 combined = ''.join(paragraph_text).strip()
-                if combined:
+                # 丢弃过短的段落（可能是标题或无意义片段）
+                if combined and len(combined) >= min_paragraph_length:
                     full_text.append(combined)
                     images.extend(para_images)
 
@@ -127,7 +132,7 @@ class RAGSystem:
         for file_path in file_paths:
             if not file_path.lower().endswith('.docx'):
                 continue
-            text_segments, images = self.extract_text_from_docx(file_path)
+            text_segments, images = self.extract_text_from_docx(file_path, min_paragraph_length=25)
             if text_segments:
                 all_text.extend(text_segments)
                 all_images.extend(images)
@@ -177,10 +182,10 @@ class RAGSystem:
         self.save_vector_store()
 
     # 用户查询接口, 通过向量存储查询相关段落
-    def query(self, question, k = 1):
+    def query(self, question, k=4):
         if not self.vector_store:
             raise ValueError("向量存储未初始化")
-        docs = self.vector_store.similarity_search(question, k = k)
+        docs = self.vector_store.similarity_search(question, k=k)
         context, picture_path, seen_images = [], [], set()
         image_folder = os.path.join(self.base_dir, "Pictures")
         for doc in docs:
@@ -193,7 +198,7 @@ class RAGSystem:
                         if re.match(f"^paragraph_{pos}_image_\\d+\\.png$", fname) and fname not in seen_images:
                             picture_path.append(f"段落 {paragraph_number}: {os.path.join(image_folder, fname)}")
                             seen_images.add(fname)
-        prompt = f"""参考以下内容以及你的已有知识，对问题给出详细回答：{' '.join(context)} \n问题为: {question}"""
+        prompt = f"""参考以下《超声原理及生物医学工程应用：生物医学超声学》中的内容以及你的已有知识，对问题给出详细回答：{' '.join(context)} \n问题为: {question}"""
         return prompt, picture_path
 
 # -------- 主入口 --------
@@ -205,7 +210,7 @@ def main():
             raise FileNotFoundError("目录下没有 DOCX 文件")
         rag.process_file(file_paths)
         rag.create_vector_store()
-    question = "连续波多普勒超声换能器有哪几种形式"
+    question = "超声换能器有哪些"
     prompt, images = rag.query(question)
     print(prompt)
     if images:
