@@ -1,7 +1,21 @@
 from flask import Flask, request, jsonify, render_template, url_for
 from werkzeug.utils import secure_filename
 import os
+import json
+import asyncio
+import base64
 from uuid import uuid4
+import sys
+from pathlib import Path
+from typing import Optional, Tuple
+
+# 添加项目根目录到Python路径
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+# 导入自定义服务模块
+from src.chat.chat_service import client, tools, tool_map as chat_tool_map
+from src.image.image_service import encode_image_to_base64, has_image_content
+from src.RAG.rag_system import call_rag_query
 
 # 初始化Flask应用
 app = Flask(__name__)
@@ -41,6 +55,9 @@ def upload_file():
     # 返回上传成功的文件元数据
     return jsonify({'message': '文件上传成功', 'files': uploaded_files})
 
+# 更新工具映射表
+tool_map = chat_tool_map.copy()
+
 # 处理文本和文件的端点
 @app.route('/ask', methods=['POST'])
 def ask():
@@ -56,22 +73,185 @@ def ask():
 
     # 先判断页面类型
     if page_type == 'learning':
-        # 如果是learning页面，再判断是否需要深度搜索
-        if deep_search:
-            # 深度搜索逻辑：后续替换为实际的处理逻辑
-            response_text = f"学习页面深度搜索收到消息：{text}"
-            if files:
-                response_text += "\n文件:\n" + "\n".join([f"- {file['original_name']}" for file in files])
+        # 准备消息列表
+        messages = [
+            {"role": "system", "content": "你是一个医学超声领域的AI助手，擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。你具备医学超声图像分析能力，可以分析已分割好病灶和正常区域的超声图像。"}
+        ]
+        
+        # 处理图像和文本
+        if files and len(files) > 0:
+            # 如果有图像文件，处理图像分析
+            try:
+                # 获取第一个图像文件的URL并提取文件名
+                image_url = files[0]['url']
+                # 从URL中提取文件名
+                filename = image_url.split('/')[-1]
+                # 使用配置的上传文件夹路径构建绝对路径
+                image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                
+                # 使用image_service将图像编码为base64
+                image_base64 = encode_image_to_base64(image_path)
+                
+                # 创建包含图像的消息
+                prompt = text if text else "请分析这张超声图像，识别病灶区域和正常区域的特征。"
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": image_base64,
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": prompt,
+                        },
+                    ],
+                })
+                
+                # 调用AI模型获取回答（使用支持图像的模型）
+                completion = client.chat.completions.create(
+                    model="moonshot-v1-128k-vision-preview",
+                    messages=messages,
+                    temperature=0.3
+                )
+                
+                # 获取AI回答
+                response_text = completion.choices[0].message.content
+            except Exception as e:
+                response_text = f"图像分析失败: {str(e)}"
         else:
-            # 普通逻辑：后续替换为实际的处理逻辑
-            response_text = f"学习页面收到消息：{text}"
-            if files:
-                response_text += "\n文件:\n" + "\n".join([f"- {file['original_name']}" for file in files])
-    elif page_type == 'usimage':
-        # usimage页面逻辑：后续替换为实际的处理逻辑
-        response_text = "影像分析页面收到图片："
+            # 如果没有图像，只处理文本问题
+            messages.append({"role": "user", "content": text})
+            
+            # 如果是learning页面，再判断是否需要深度搜索
+            if deep_search:
+                # 深度搜索逻辑：调用RAG系统查询相关知识
+                rag_result, picture_paths = call_rag_query(text)
+                if rag_result:
+                    # 将RAG结果添加到消息历史
+                    messages.append({"role": "system", "content": f"相关知识：\n{rag_result}"})
+            
+            # 调用AI模型获取回答
+            completion = client.chat.completions.create(
+                model="moonshot-v1-128k",
+                messages=messages,
+                temperature=0.3,
+                tools=tools
+            )
+            
+            # 处理可能的工具调用
+            choice = completion.choices[0]
+            finish_reason = choice.finish_reason
+            
+            if finish_reason == "tool_calls" and hasattr(choice.message, 'tool_calls'):
+                # 添加AI消息到对话历史
+                messages.append(choice.message)
+                
+                # 处理工具调用
+                for tool_call in choice.message.tool_calls:
+                    tool_call_name = tool_call.function.name
+                    if tool_call_name not in tool_map:
+                        continue
+                        
+                    # 解析工具调用参数
+                    tool_call_arguments = json.loads(tool_call.function.arguments)
+                    tool_function = tool_map[tool_call_name]
+                    
+                    # 执行工具调用
+                    tool_result = tool_function(tool_call_arguments)
+                    
+                    # 添加工具结果到对话历史
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "name": tool_call_name,
+                        "content": json.dumps(tool_result)
+                    })
+                
+                # 再次调用AI获取最终回答
+                completion = client.chat.completions.create(
+                    model="moonshot-v1-128k",
+                    messages=messages,
+                    temperature=0.3
+                )
+            
+            # 获取AI回答
+            response_text = completion.choices[0].message.content
+            
+            # 如果是深度搜索且有相关图片，添加图片信息
+            if deep_search and picture_paths:
+                response_text += "\n\n相关图片：\n" + "\n".join([f"- {path}" for path in picture_paths])
+        
+        # 如果有文件，添加文件信息
         if files:
-            response_text += "\n" + "\n".join([f"- {file['original_name']}" for file in files])
+            response_text += "\n文件:\n" + "\n".join([f"- {file['original_name']}" for file in files])
+    elif page_type == 'usimage':
+        # 准备消息列表
+        messages = [
+            {"role": "system", "content": "你是一个医学超声领域的AI助手，擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。你具备医学超声图像分析能力，可以分析已分割好病灶和正常区域的超声图像。"}
+        ]
+        
+        # usimage页面逻辑：处理图像和文本
+        if files and len(files) > 0:
+            # 如果有图像文件，处理图像分析
+            try:
+                # 获取第一个图像文件的URL并提取文件名
+                image_url = files[0]['url']
+                # 从URL中提取文件名
+                filename = image_url.split('/')[-1]
+                # 使用配置的上传文件夹路径构建绝对路径
+                image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                
+                # 使用image_service将图像编码为base64
+                image_base64 = encode_image_to_base64(image_path)
+                
+                # 创建包含图像的消息
+                prompt = text if text else "请分析这张超声图像，识别病灶区域和正常区域的特征。"
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": image_base64,
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": prompt,
+                        },
+                    ],
+                })
+                
+                # 调用AI模型获取回答（使用支持图像的模型）
+                completion = client.chat.completions.create(
+                    model="moonshot-v1-128k-vision-preview",
+                    messages=messages,
+                    temperature=0.3
+                )
+                
+                # 获取AI回答
+                response_text = completion.choices[0].message.content
+            except Exception as e:
+                response_text = f"图像分析失败: {str(e)}"
+        elif text:
+            # 如果只有文本问题，调用超声知识查询
+            messages.append({"role": "user", "content": text})
+            
+            # 调用AI模型获取回答
+            completion = client.chat.completions.create(
+                model="moonshot-v1-128k",
+                messages=messages,
+                temperature=0.3,
+                tools=tools
+            )
+            
+            # 获取AI回答
+            response_text = completion.choices[0].message.content
+        else:
+            response_text = "请提供超声图像或相关问题"
     else:
         # 无效页面类型
         response_text = "无效的页面类型"
