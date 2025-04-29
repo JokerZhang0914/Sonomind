@@ -4,6 +4,11 @@ import asyncio
 from chat.chat_service import client, tools, tool_map
 from speech.speech_service import text_to_speech
 from image import encode_image_to_base64, has_image_content
+# # 添加项目根目录到Python路径
+# import sys
+# from pathlib import Path
+# sys.path.append(str(Path(__file__).resolve().parents[1]))
+from RAG.rag_system import call_rag_query
 
 # 系统提示信息
 system_message = {
@@ -31,7 +36,25 @@ async def main():
         
         if choice == "1":
             user_input = input("请输入您的问题: ")
-            messages.append({"role": "user", "content": user_input})
+            
+            # 调用RAG系统查询相关知识
+            rag_result, picture_paths = call_rag_query(user_input)
+            
+            # 如果RAG系统返回结果，将结果合并到消息中
+            if rag_result:
+                print("RAG系统找到相关知识")
+                # 将RAG结果与用户问题合并
+                combined_message = f"{rag_result}\n\n用户问题: {user_input}"
+                messages.append({"role": "user", "content": combined_message})
+                
+                # 如果有相关图片，打印图片路径信息
+                if picture_paths:
+                    print("找到相关图片:")
+                    for path_info in picture_paths:
+                        print(path_info)
+            else:
+                # 如果没有找到相关知识，直接使用用户问题
+                messages.append({"role": "user", "content": user_input})
         
         elif choice == "2":
             image_path = input("请输入图像文件路径: ")
