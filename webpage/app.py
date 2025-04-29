@@ -1,46 +1,22 @@
 from flask import Flask, request, jsonify, render_template, url_for
 from werkzeug.utils import secure_filename
 import os
-import json
-import asyncio
-import base64
 from uuid import uuid4
-from dotenv import load_dotenv
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
 
 # 添加项目根目录到Python路径
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 # 导入自定义服务模块
-from src.chat.chat_service import client, tools, tool_map as chat_tool_map
-from src.image.image_service import encode_image_to_base64, has_image_content
-from src.speech.speech_service import text_to_speech
-from RAG.rag_system import RAGSystem
+from src.chat.chat_service import tool_map as chat_tool_map
 
-# 加载环境变量
-load_dotenv()
 
 # 初始化Flask应用
 app = Flask(__name__)
 
-def call_rag_query(question: str, model_name: str = "BAAI/bge-large-zh-v1.5") -> Tuple[Optional[str], list[str]]:
-    """调用RAG系统进行知识查询"""
-    try:
-        rag = RAGSystem(model_name=model_name)  # 初始化 RAGSystem
-        result, picture_path = rag.query(question, k=4)  # k 是返回的相似文本块数量
-        return result, picture_path
-    except Exception as e:
-        print(f"查询失败: {e}")
-        return None, []
-
-# 更新工具映射表，使用从chat_service导入的映射
-tool_map = chat_tool_map.copy()
-tool_map["text_to_speech"] = text_to_speech  # 添加语音合成工具
-
 # 配置上传文件夹和文件限制
-app.config['UPLOAD_FOLDER'] = 'static/uploads'  # 上传文件保存路径
+app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static/uploads')  # 上传文件保存路径
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 最大文件大小16MB
 
 # 确保上传文件夹存在
@@ -74,236 +50,33 @@ def upload_file():
     # 返回上传成功的文件元数据
     return jsonify({'message': '文件上传成功', 'files': uploaded_files})
 
+# 更新工具映射表
+tool_map = chat_tool_map.copy()
+
+# 导入页面处理器
+from page_handlers import LearningHandler, UsimageHandler
+
+# 初始化页面处理器
+learning_handler = LearningHandler(app.config['UPLOAD_FOLDER'])
+usimage_handler = UsimageHandler(app.config['UPLOAD_FOLDER'])
+
 # 处理文本和文件的端点
 @app.route('/ask', methods=['POST'])
 def ask():
     # 获取JSON请求数据
     data = request.get_json()
-    text = data.get('text', '')  # 获取文本内容
-    files = data.get('files', [])  # 获取文件元数据列表
     page_type = data.get('page_type', 'learning')  # 获取页面类型，默认为learning
-    deep_search = data.get('deep_search', False)  # 获取深度搜索标志，默认为False
-    enable_tts = data.get('enable_tts', False)  # 获取是否启用语音合成
 
-    # 响应文本
-    response_text = ""
-    audio_data = None
-
-    # 先判断页面类型
+    # 根据页面类型选择处理器
     if page_type == 'learning':
-        # 准备消息列表
-        messages = [
-            {"role": "system", "content": "你是 Kimi，由 Moonshot AI 提供的人工智能助手，你更擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。你具备医学超声图像分析能力，可以分析已分割好病灶和正常区域的超声图像。"}
-        ]
-        
-        # 如果是learning页面，再判断是否需要深度搜索
-        messages.append({"role": "user", "content": text})
-        
-        if deep_search:
-            # 深度搜索逻辑：调用RAG系统查询相关知识
-            rag_result, picture_paths = call_rag_query(text)
-            if rag_result:
-                # 将RAG结果添加到消息历史
-                messages.append({"role": "system", "content": f"相关知识：\n{rag_result}"})
-        
-        # 调用AI模型获取回答
-        completion = client.chat.completions.create(
-            model="moonshot-v1-128k",
-            messages=messages,
-            temperature=0.3,
-            tools=tools
-        )
-        
-        # 处理可能的工具调用
-        choice = completion.choices[0]
-        finish_reason = choice.finish_reason
-        
-        if finish_reason == "tool_calls":
-            # 添加AI消息到对话历史
-            messages.append(choice.message)
-            
-            # 处理工具调用
-            for tool_call in choice.message.tool_calls:
-                tool_call_name = tool_call.function.name
-                if tool_call_name not in tool_map:
-                    continue
-                    
-                # 解析工具调用参数
-                tool_call_arguments = json.loads(tool_call.function.arguments)
-                tool_function = tool_map[tool_call_name]
-                
-                # 执行工具调用
-                if tool_call_name == "text_to_speech":
-                    # 异步执行语音合成
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    tool_result = loop.run_until_complete(tool_function(tool_call_arguments.get("text", "")))
-                    loop.close()
-                else:
-                    # 执行其他工具
-                    tool_result = tool_function(tool_call_arguments)
-                
-                # 添加工具结果到对话历史
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "name": tool_call_name,
-                    "content": json.dumps(tool_result)
-                })
-            
-            # 再次调用AI获取最终回答
-            completion = client.chat.completions.create(
-                model="moonshot-v1-128k",
-                messages=messages,
-                temperature=0.3
-            )
-        
-        # 获取AI回答
-        response_text = completion.choices[0].message.content
-        
-        # 如果是深度搜索且有相关图片，添加图片信息
-        if deep_search and picture_paths:
-            response_text += "\n\n相关图片：\n" + "\n".join([f"- {path}" for path in picture_paths])
-            
-        # 如果有文件，添加文件信息
-        if files:
-            response_text += "\n文件:\n" + "\n".join([f"- {file['original_name']}" for file in files])
+        response = learning_handler.handle_request(data)
     elif page_type == 'usimage':
-        # 准备消息列表
-        messages = [
-            {"role": "system", "content": "你是 Kimi，由 Moonshot AI 提供的人工智能助手，你更擅长中文和英文的对话。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。你具备医学超声图像分析能力，可以分析已分割好病灶和正常区域的超声图像。"}
-        ]
-        
-        # usimage页面逻辑：处理图像和文本
-        if files and len(files) > 0:
-            # 如果有图像文件，处理图像分析
-            try:
-                # 获取第一个图像文件的URL并转换为本地路径
-                image_url = files[0]['url']
-                image_path = os.path.join(os.getcwd(), image_url.lstrip('/'))
-                
-                # 使用image_service将图像编码为base64
-                image_base64 = encode_image_to_base64(image_path)
-                
-                # 创建包含图像的消息
-                prompt = text if text else "请分析这张超声图像，识别病灶区域和正常区域的特征。"
-                messages.append({
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": image_base64,
-                            },
-                        },
-                        {
-                            "type": "text",
-                            "text": prompt,
-                        },
-                    ],
-                })
-                
-                # 调用AI模型获取回答（使用支持图像的模型）
-                completion = client.chat.completions.create(
-                    model="moonshot-v1-128k-vision-preview",
-                    messages=messages,
-                    temperature=0.3
-                )
-                
-                # 处理可能的工具调用（图像模型通常不支持工具调用，但为了代码一致性添加处理逻辑）
-                choice = completion.choices[0]
-                finish_reason = choice.finish_reason
-                
-                if finish_reason == "tool_calls" and hasattr(choice.message, 'tool_calls'):
-                    # 添加AI消息到对话历史
-                    messages.append(choice.message)
-                    
-                    # 处理工具调用
-                    for tool_call in choice.message.tool_calls:
-                        tool_call_name = tool_call.function.name
-                        if tool_call_name not in tool_map:
-                            continue
-                            
-                        # 解析工具调用参数
-                        tool_call_arguments = json.loads(tool_call.function.arguments)
-                        tool_function = tool_map[tool_call_name]
-                        
-                        # 执行工具调用
-                        if tool_call_name == "text_to_speech":
-                            # 异步执行语音合成
-                            loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(loop)
-                            tool_result = loop.run_until_complete(tool_function(tool_call_arguments.get("text", "")))
-                            loop.close()
-                        else:
-                            # 执行其他工具
-                            tool_result = tool_function(tool_call_arguments)
-                        
-                        # 添加工具结果到对话历史
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "name": tool_call_name,
-                            "content": json.dumps(tool_result)
-                        })
-                    
-                    # 再次调用AI获取最终回答
-                    completion = client.chat.completions.create(
-                        model="moonshot-v1-128k-vision-preview",
-                        messages=messages,
-                        temperature=0.3
-                    )
-                
-                # 获取AI回答
-                response_text = completion.choices[0].message.content
-            except Exception as e:
-                response_text = f"图像分析失败: {str(e)}"
-        elif text:
-            # 如果只有文本问题，调用超声知识查询
-            messages.append({"role": "user", "content": text})
-            
-            # 调用AI模型获取回答
-            completion = client.chat.completions.create(
-                model="moonshot-v1-128k",
-                messages=messages,
-                temperature=0.3,
-                tools=tools
-            )
-            
-            # 获取AI回答
-            response_text = completion.choices[0].message.content
-        else:
-            response_text = "请提供超声图像或相关问题"
+        response = usimage_handler.handle_request(data)
     else:
-        # 无效页面类型
-        response_text = "无效的页面类型"
+        response = {'text': '无效的页面类型', 'files': []}
 
-    # 如果启用了语音合成，生成语音数据
-    if enable_tts and response_text:
-        try:
-            # 使用异步函数需要在事件循环中运行
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            tts_result = loop.run_until_complete(text_to_speech(response_text))
-            loop.close()
-            
-            if 'audio_data' in tts_result:
-                audio_data = tts_result['audio_data']
-        except Exception as e:
-            print(f"语音合成失败: {str(e)}")
-
-    # 构建响应数据
-    response_data = {'text': response_text, 'files': files}
-    
-    # 如果有音频数据，添加到响应中
-    if audio_data:
-        # 将二进制音频数据转换为Base64编码
-        import base64
-        audio_base64 = base64.b64encode(audio_data).decode('utf-8')
-        response_data['audio'] = audio_base64
-
-    # 返回JSON响应
-    return jsonify(response_data)
+    # 返回响应
+    return jsonify(response)
 
 # 深度搜索端点（兼容旧代码，重定向到/ask）
 @app.route('/deepsearch', methods=['POST'])
@@ -330,36 +103,6 @@ def learning():
 @app.route('/usimage')
 def usimage():
     return render_template('usimage.html')  # 渲染影像分析页面
-
-# 文本转语音端点
-@app.route('/text_to_speech', methods=['POST'])
-def generate_speech():
-    # 获取JSON请求数据
-    data = request.get_json()
-    text = data.get('text', '')
-    
-    if not text:
-        return jsonify({'error': '没有提供文本内容'}), 400
-    
-    try:
-        # 使用异步函数需要在事件循环中运行
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        tts_result = loop.run_until_complete(text_to_speech(text))
-        loop.close()
-        
-        if 'error' in tts_result:
-            return jsonify({'error': tts_result['error']}), 500
-            
-        if 'audio_data' in tts_result:
-            # 将二进制音频数据转换为Base64编码
-            import base64
-            audio_base64 = base64.b64encode(tts_result['audio_data']).decode('utf-8')
-            return jsonify({'audio': audio_base64})
-        else:
-            return jsonify({'error': '语音合成失败'}), 500
-    except Exception as e:
-        return jsonify({'error': f'语音合成失败: {str(e)}'}), 500
 
 # 启动Flask应用
 if __name__ == '__main__':
