@@ -7,7 +7,8 @@ from typing import Optional, Tuple, List, Dict, Any
 
 from src.chat.chat_service import client, tools, tool_map as chat_tool_map
 from src.image.image_service import encode_image_to_base64
-from src.RAG.rag_system import call_rag_query
+from src.RAG.rag_system import call_rag_query, copy_images_to_static
+# from src.RAG.image_utils import copy_images_to_static
 
 class PageHandler:
     def __init__(self, upload_folder: str):
@@ -109,8 +110,14 @@ class PageHandler:
         
         response = completion.choices[0].message.content
         if deep_search and picture_paths:
-            response += "\n\n相关图片：\n" + "\n".join([f"- {path}" for path in picture_paths])
-        return response
+            # 复制相关图片到static目录并获取URL
+            image_urls = copy_images_to_static(picture_paths, os.path.dirname(self.upload_folder))
+            if image_urls:
+                response += "\n\n相关图片："
+                for image_info in image_urls:
+                    response += f"\n- {image_info['original_name']}"
+                return {'text': response, 'files': image_urls}
+        return {'text': response, 'files': []}
 
 class LearningHandler(PageHandler):
     def handle_request(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -119,16 +126,16 @@ class LearningHandler(PageHandler):
         files = data.get('files', [])
         deep_search = data.get('deep_search', False)
         
-        response_text = ""
         if files and len(files) > 0:
             response_text = self.process_image(files[0]['url'], text)
+            if files:
+                response_text += "\n文件:\n" + "\n".join([f"- {file['original_name']}" for file in files])
+            return {'text': response_text, 'files': files}
         else:
-            response_text = self.process_text(text, deep_search)
-        
-        if files:
-            response_text += "\n文件:\n" + "\n".join([f"- {file['original_name']}" for file in files])
-        
-        return {'text': response_text, 'files': files}
+            response = self.process_text(text, deep_search)
+            if isinstance(response, dict):
+                return response
+            return {'text': response, 'files': []}
 
 class UsimageHandler(PageHandler):
     def handle_request(self, data: Dict[str, Any]) -> Dict[str, Any]:

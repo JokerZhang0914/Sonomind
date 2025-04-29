@@ -5,6 +5,9 @@ import unicodedata
 import pickle
 import glob
 import io
+import shutil
+from pathlib import Path
+from typing import List
 import base64
 from docx import Document
 from docx.oxml.ns import qn
@@ -209,6 +212,46 @@ def call_rag_query(question, model_name="BAAI/bge-large-zh-v1.5"):
     except Exception as e:
         print(f"查询失败: {e}")
         return None, []
+
+def copy_images_to_static(image_paths: List[str], static_folder: str) -> List[str]:
+    """将RAG系统找到的相关图片复制到static/related_images目录下
+
+    Args:
+        image_paths: RAG系统返回的图片路径列表
+        static_folder: static目录的路径
+
+    Returns:
+        复制后的图片URL列表
+    """
+    # 确保目标目录存在
+    related_images_dir = os.path.join(static_folder, 'related_images')
+    os.makedirs(related_images_dir, exist_ok=True)
+    
+    # 复制图片并生成URL
+    image_urls = []
+    for image_path in image_paths:
+        # 提取段落信息和文件名
+        parts = image_path.split(': ')
+        if len(parts) != 2:
+            continue
+            
+        paragraph_info, full_path = parts
+        filename = os.path.basename(full_path)
+        
+        # 复制图片到static目录
+        dest_path = os.path.join(related_images_dir, filename)
+        try:
+            shutil.copy2(full_path, dest_path)
+            # 生成相对URL路径
+            url = f'/static/related_images/{filename}'
+            image_urls.append({
+                'url': url,
+                'original_name': f'{paragraph_info}: {filename}'
+            })
+        except Exception as e:
+            print(f'复制图片失败: {e}')
+    
+    return image_urls
         
 # -------- 主入口 --------
 def main():
@@ -226,6 +269,8 @@ def main():
         print("\n相关图片：")
         for img in images:
             print(img)
+
+
 
 if __name__ == "__main__":
     main()
