@@ -206,7 +206,7 @@ class RAGSystem:
         prompt = f"""参考以下《超声原理及生物医学工程应用：生物医学超声学》中的内容以及你的已有知识，对问题给出详细回答：{' '.join(context)} \n问题为: {question}"""
         return prompt, picture_path
 
-def call_rag_query(question, model_name="BAAI/bge-large-zh-v1.5"):
+def call_rag_query(question, model_name="bge-large-zh-v1.5"):
     rag = RAGSystem(model_name=model_name)  # 初始化 RAGSystem
     try:
         result, picture_path = rag.query(question, k = 4) # k 是返回的相似文本块数量，k=1 就是只输出最相关的一段文字

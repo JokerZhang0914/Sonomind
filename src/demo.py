@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from RAG.rag_system import RAGSystem
 
-def call_rag_query(question, model_name="BAAI/bge-large-zh-v1.5"):
+def call_rag_query(question, model_name="bge-large-zh-v1.5"):
     rag = RAGSystem(model_name=model_name)  # 初始化 RAGSystem
     try:
         result, picture_path = rag.query(question, k = 4) # k 是返回的相似文本块数量，若 k = 1 就只输出最相关的一段文字
