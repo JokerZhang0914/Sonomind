@@ -52,8 +52,9 @@ def clean_text(text):
 # -------- 嵌入模型封装 --------
 class SentenceTransformerEmbeddings(Embeddings):
     def __init__(self, model_name):
-        self.model = SentenceTransformer(model_name, trust_remote_code=True, 
-        model_kwargs={"mirror": "https://mirror.tuna.tsinghua.edu.cn/hugging-face-models"})
+        # 假设 model_name 是模型文件夹名，例如 "bge-large-zh-v1.5"
+        model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model", model_name)
+        self.model = SentenceTransformer(model_path, local_files_only=True)
 
     def embed_documents(self, texts):
         return self.model.encode(texts, show_progress_bar=True).tolist()
@@ -63,7 +64,7 @@ class SentenceTransformerEmbeddings(Embeddings):
 
 # -------- 核心 RAG 系统 --------
 class RAGSystem:
-    def __init__(self, model_name="BAAI/bge-large-zh-v1.5"):
+    def __init__(self, model_name="bge-large-zh-v1.5"):
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
         self.vector_store_path = os.path.join(self.base_dir, "vector_store.faiss")
         self.documents_path = os.path.join(self.base_dir, "documents.pkl")
